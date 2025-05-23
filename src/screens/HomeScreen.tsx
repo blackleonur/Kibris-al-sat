@@ -815,116 +815,96 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
     return (
       <TouchableOpacity
-        style={styles.advertItem}
+        style={[styles.advertItem, isOwnAdvert && styles.ownAdvertItem]}
         onPress={() => navigation.navigate("Advert", { advertId: item.id })}
       >
-        <View>
-          <View style={styles.advertImageContainer}>
-            {imageUrl ? (
-              <Image
-                source={{ uri: imageUrl }}
-                style={styles.advertImage}
-                resizeMode="cover"
-                onError={(e) =>
-                  console.log("Image loading error:", e.nativeEvent.error)
-                }
-              />
-            ) : (
-              <View style={styles.defaultImageContainer}>
-                <FontAwesomeIcon icon={faImage} size={40} color="#cccccc" />
-              </View>
-            )}
-            {isOwnAdvert && (
-              <View style={styles.ownAdvertBadge}>
+        <View style={styles.advertImageContainer}>
+          {imageUrl ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.advertImage}
+              resizeMode="cover"
+              onError={(e) =>
+                console.log("Image loading error:", e.nativeEvent.error)
+              }
+            />
+          ) : (
+            <View style={styles.defaultImageContainer}>
+              <FontAwesomeIcon icon={faImage} size={40} color="#cccccc" />
+            </View>
+          )}
+        </View>
+        <View style={styles.advertInfo}>
+          <View>
+            <Text style={styles.advertTitle} numberOfLines={2}>
+              {item.title.toUpperCase()}
+            </Text>
+            <View style={styles.advertHeader}>
+              <View style={styles.priceContainer}>
                 <LinearGradient
                   colors={[COLORS.primary, "#00C4B4"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.ownAdvertGradient}
+                  style={styles.priceGradient}
                 >
-                  <FontAwesomeIcon
-                    icon={faUser}
-                    size={12}
-                    color="#fff"
-                    style={styles.ownAdvertIcon}
-                  />
-                  <Text style={styles.ownAdvertText}>Size ait ilan</Text>
+                  <Text style={styles.advertPrice}>
+                    {item.price
+                      .toLocaleString("tr-TR", {
+                        useGrouping: true,
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      })
+                      .replace(/,/g, ".")}{" "}
+                    ₺
+                  </Text>
                 </LinearGradient>
+                {!isLoadingExchangeRate && exchangeRate && (
+                  <>
+                    <Text style={styles.priceSeparator}>≈</Text>
+                    <LinearGradient
+                      colors={["#f0faf9", "#e6f7f5"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.priceGradient}
+                    >
+                      <Text style={styles.gbpPrice}>
+                        £
+                        {Number(convertToGBP(item.price)).toLocaleString(
+                          "en-GB"
+                        )}
+                      </Text>
+                    </LinearGradient>
+                  </>
+                )}
               </View>
-            )}
-          </View>
-          <View style={styles.imageActions}>
-            <TouchableOpacity
-              style={[styles.imageActionButton, styles.messageButton]}
-            >
-              <FontAwesomeIcon icon={faEnvelope} size={18} color="#fff" />
-              <Text style={styles.imageActionText}>Mesaj Gönder</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.imageActionButton, styles.favoriteButton]}
-            >
-              <FontAwesomeIcon icon={faHeart} size={18} color="#fff" />
-              <Text style={styles.imageActionText}>Favoriye Ekle</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        <View style={styles.advertInfo}>
-          <Text style={styles.advertTitle} numberOfLines={2}>
-            {item.title.toUpperCase()}
-          </Text>
-          <View style={styles.advertHeader}>
-            <View style={styles.priceContainer}>
-              <LinearGradient
-                colors={[COLORS.primary, "#00C4B4"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.priceGradient}
-              >
-                <Text style={styles.advertPrice}>
-                  {item.price
-                    .toLocaleString("tr-TR", {
-                      useGrouping: true,
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })
-                    .replace(/,/g, ".")}{" "}
-                  ₺
-                </Text>
-              </LinearGradient>
-              {!isLoadingExchangeRate && exchangeRate && (
-                <>
-                  <Text style={styles.priceSeparator}>≈</Text>
-                  <LinearGradient
-                    colors={["#f0faf9", "#e6f7f5"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.priceGradient}
-                  >
-                    <Text style={styles.gbpPrice}>
-                      £
-                      {Number(convertToGBP(item.price)).toLocaleString("en-GB")}
-                    </Text>
-                  </LinearGradient>
-                </>
-              )}
             </View>
+            <Text style={styles.advertDescription} numberOfLines={2}>
+              {item.description}
+            </Text>
           </View>
-
-          <Text style={styles.advertDescription} numberOfLines={2}>
-            {item.description}
-          </Text>
-
           <View style={styles.advertFooter}>
             <View style={styles.sellerInfo}>
               <View style={styles.infoRow}>
-                <View style={styles.infoItem}>
+                <View
+                  style={[
+                    styles.infoItem,
+                    isOwnAdvert && styles.ownAdvertInfoItem,
+                  ]}
+                >
                   <FontAwesomeIcon
                     icon={faUser}
                     size={14}
-                    color={COLORS.text.primary}
+                    color={isOwnAdvert ? "#fff" : COLORS.text.primary}
                   />
-                  <Text style={styles.infoText}>
-                    {item.sellerName || "İsimsiz Satıcı"}
+                  <Text
+                    style={[
+                      styles.infoText,
+                      isOwnAdvert && styles.ownAdvertInfoText,
+                    ]}
+                  >
+                    {isOwnAdvert
+                      ? "Size ait ilan"
+                      : item.sellerName || "İsimsiz Satıcı"}
                   </Text>
                 </View>
               </View>
@@ -1844,7 +1824,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginVertical: 8,
     marginTop: 12,
-    padding: 12,
     width: "95%",
     alignSelf: "center",
     shadowColor: "#000",
@@ -1852,14 +1831,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 4,
-    alignItems: "flex-start",
-    minHeight: 180,
+    alignItems: "stretch",
+    height: 140,
+    overflow: "hidden",
+  },
+  ownAdvertItem: {
+    backgroundColor: "#f0faf9",
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   advertImageContainer: {
     width: 120,
-    height: 120,
-    borderRadius: 16,
-    overflow: "hidden",
+    height: "100%",
     backgroundColor: COLORS.background,
     justifyContent: "center",
     alignItems: "center",
@@ -1869,61 +1857,28 @@ const styles = StyleSheet.create({
     height: "100%",
     resizeMode: "cover",
   },
-  imageActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 80,
-    marginTop: 8,
-    width: 120,
-    paddingLeft: 10,
-  },
-  imageActionButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 6,
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    gap: 6,
-  },
-  imageActionText: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "500",
-    marginLeft: 5,
-  },
-  messageButton: {
-    backgroundColor: COLORS.primary,
-  },
-  favoriteButton: {
-    backgroundColor: COLORS.secondary,
-  },
   advertInfo: {
     flex: 1,
-    marginLeft: 12,
+    padding: 12,
     justifyContent: "space-between",
+    height: "100%",
   },
   advertHeader: {
     flexDirection: "row",
     justifyContent: "flex-start",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   titleContainer: {
     flex: 1,
     marginRight: 12,
   },
   advertTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     color: COLORS.text.primary,
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   priceContainer: {
     flexDirection: "row",
@@ -1953,16 +1908,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   advertDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.text.secondary,
-    lineHeight: 18,
-    marginBottom: 8,
+    lineHeight: 16,
+    marginBottom: 6,
   },
   advertFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    marginTop: 4,
   },
   sellerInfo: {
     flex: 1,
@@ -1975,16 +1929,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: COLORS.background,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    marginBottom: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  ownAdvertInfoItem: {
+    backgroundColor: COLORS.primary,
   },
   infoText: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.text.secondary,
-    marginLeft: 8,
+    marginLeft: 6,
     fontWeight: "500",
+  },
+  ownAdvertInfoText: {
+    color: "#fff",
+    fontWeight: "600",
   },
   footer: {
     position: "absolute",

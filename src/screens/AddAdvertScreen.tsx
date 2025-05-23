@@ -14,6 +14,8 @@ import {
   Dimensions,
   Platform,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Keyboard,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../Types";
@@ -190,6 +192,10 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
   const [showHorsePowerPicker, setShowHorsePowerPicker] = useState(false);
   const [showEngineSizePicker, setShowEngineSizePicker] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [yearSearchTerm, setYearSearchTerm] = useState("");
+  const [horsePowerSearchTerm, setHorsePowerSearchTerm] = useState("");
+  const [engineSizeSearchTerm, setEngineSizeSearchTerm] = useState("");
+  const [categorySearchTerm, setCategorySearchTerm] = useState("");
 
   // Döviz kurunu getiren fonksiyon
   const fetchExchangeRate = async () => {
@@ -352,6 +358,33 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
     }
   };
 
+  // Kategori filtreleme fonksiyonu
+  const getFilteredCategories = (level: number) => {
+    let categoryList: Category[] = [];
+    const parentId = level === 0 ? undefined : selectedCategories[level - 1];
+
+    if (level === 0) {
+      categoryList = categories.filter((cat) => !cat.parentId);
+    } else if (selectedCategories[0] === 1 && level === 1) {
+      categoryList = vehicleCategories.filter((cat) => cat.parentId === 1);
+    } else if (selectedCategories[0] === 1 && level > 1) {
+      categoryList = vehicleCategories.filter(
+        (cat) => cat.parentId === selectedCategories[level - 1]
+      );
+    } else {
+      categoryList = categories.filter((cat) => cat.parentId === parentId);
+    }
+
+    // Arama terimine göre filtrele
+    if (categorySearchTerm) {
+      return categoryList.filter((category) =>
+        category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+      );
+    }
+
+    return categoryList;
+  };
+
   // Kategori seviyesini render etme
   const renderCategoryLevel = (level: number) => {
     // Eğer önceki seviye seçilmemişse, bu seviyeyi gösterme
@@ -440,84 +473,98 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
 
   // Picker modalını render etme
   const renderPickerModal = () => {
-    let categoryList: Category[] = [];
-    const parentId =
-      currentPickerLevel === 0
-        ? undefined
-        : selectedCategories[currentPickerLevel - 1];
-
-    if (selectedCategories[0] === 1 && currentPickerLevel === 1) {
-      categoryList = vehicleCategories.filter((cat) => cat.parentId === 1);
-    } else if (selectedCategories[0] === 1 && currentPickerLevel > 1) {
-      categoryList = vehicleCategories.filter(
-        (cat) => cat.parentId === selectedCategories[currentPickerLevel - 1]
-      );
-    } else {
-      categoryList = categories.filter((cat) => cat.parentId === parentId);
-    }
+    const categoryList = getFilteredCategories(currentPickerLevel);
 
     return (
       <Modal
         visible={showPicker}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowPicker(false)}
+        onRequestClose={() => {
+          setShowPicker(false);
+          setCategorySearchTerm("");
+          Keyboard.dismiss();
+        }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text
-                style={styles.modalTitle}
-              >{`${currentPickerLevel}. Alt Kategori Seçin`}</Text>
-              <TouchableOpacity onPress={() => setShowPicker(false)}>
-                <Text style={styles.modalCloseButton}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalContent}>
-              {categoryList.map((category) => (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {`${currentPickerLevel}. Alt Kategori Seçin`}
+                </Text>
                 <TouchableOpacity
-                  key={category.id}
-                  style={[
-                    styles.modalItem,
-                    selectedCategories[currentPickerLevel] === category.id &&
-                      styles.selectedModalItem,
-                  ]}
                   onPress={() => {
-                    handleCategorySelect(category.id, currentPickerLevel);
                     setShowPicker(false);
+                    setCategorySearchTerm("");
+                    Keyboard.dismiss();
                   }}
                 >
-                  <Text
-                    style={[
-                      styles.modalItemText,
-                      selectedCategories[currentPickerLevel] === category.id &&
-                        styles.selectedModalItemText,
-                    ]}
-                  >
-                    {category.name}
-                  </Text>
-                  {(selectedCategories[0] === 1
-                    ? vehicleCategories.some(
-                        (cat) => cat.parentId === category.id
-                      )
-                    : categories.some(
-                        (cat) => cat.parentId === category.id
-                      )) && (
-                    <FontAwesomeIcon
-                      icon={faChevronRight}
-                      size={16}
-                      color={
-                        selectedCategories[currentPickerLevel] === category.id
-                          ? "#8adbd2"
-                          : "#ccc"
-                      }
-                    />
-                  )}
+                  <Text style={styles.modalCloseButton}>✕</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              </View>
+              <View style={styles.searchContainer}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Kategori ara..."
+                  value={categorySearchTerm}
+                  onChangeText={setCategorySearchTerm}
+                />
+              </View>
+              <ScrollView
+                style={styles.modalContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                {categoryList.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[
+                      styles.modalItem,
+                      selectedCategories[currentPickerLevel] === category.id &&
+                        styles.selectedModalItem,
+                    ]}
+                    onPress={() => {
+                      handleCategorySelect(category.id, currentPickerLevel);
+                      setShowPicker(false);
+                      setCategorySearchTerm("");
+                      Keyboard.dismiss();
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalItemText,
+                        selectedCategories[currentPickerLevel] ===
+                          category.id && styles.selectedModalItemText,
+                      ]}
+                    >
+                      {category.name}
+                    </Text>
+                    {(selectedCategories[0] === 1
+                      ? vehicleCategories.some(
+                          (cat) => cat.parentId === category.id
+                        )
+                      : categories.some(
+                          (cat) => cat.parentId === category.id
+                        )) && (
+                      <FontAwesomeIcon
+                        icon={faChevronRight}
+                        size={16}
+                        color={
+                          selectedCategories[currentPickerLevel] === category.id
+                            ? "#8adbd2"
+                            : "#ccc"
+                        }
+                      />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     );
   };
@@ -641,11 +688,11 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
     }
   };
 
-  // Seçilen konumdan adres bilgilerini alma
-  const getAddressFromCoordinates = async (
-    latitude: number,
-    longitude: number
-  ) => {
+  // Harita üzerinde konum seçildiğinde
+  const handleMapPress = async (event: any) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    setLocation({ latitude, longitude });
+
     try {
       const response = await Location.reverseGeocodeAsync({
         latitude,
@@ -715,18 +762,6 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
     }
   };
 
-  // Harita üzerinde konum seçildiğinde
-  const handleMapPress = (event: any) => {
-    const { latitude, longitude } = event.nativeEvent.coordinate;
-    setLocation({ latitude, longitude });
-    setAddressDetails((prev) => ({
-      ...prev,
-      latitude,
-      longitude,
-    }));
-    getAddressFromCoordinates(latitude, longitude);
-  };
-
   // Harita modalı
   const renderMapModal = () => {
     return (
@@ -750,6 +785,13 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
             >
               <Text style={styles.mapConfirmButtonText}>Onayla</Text>
             </TouchableOpacity>
+          </View>
+          <View style={styles.mapInfoContainer}>
+            <Text style={styles.mapInfoText}>
+              Lütfen haritada konumunuzu seçmek için pin ile etkileşime geçin.
+              Seçtiğiniz konumun adres bilgileri otomatik olarak
+              doldurulacaktır.
+            </Text>
           </View>
           {location && (
             <MapView
@@ -929,6 +971,19 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
       setPrice("");
     }
   };
+
+  // Filtreleme fonksiyonları
+  const filteredYears = YEARS.filter((year) =>
+    year.toLowerCase().includes(yearSearchTerm.toLowerCase())
+  );
+
+  const filteredHorsePowers = ENGINE_POWERS.filter((power) =>
+    power.toLowerCase().includes(horsePowerSearchTerm.toLowerCase())
+  );
+
+  const filteredEngineSizes = ENGINE_SIZES.filter((size) =>
+    size.toLowerCase().includes(engineSizeSearchTerm.toLowerCase())
+  );
 
   // Araç detayları formunu render etme
   const renderCarDetails = () => {
@@ -1112,8 +1167,16 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
                   <Text style={styles.modalCloseButton}>✕</Text>
                 </TouchableOpacity>
               </View>
+              <View style={styles.searchContainer}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Model yılı ara..."
+                  value={yearSearchTerm}
+                  onChangeText={setYearSearchTerm}
+                />
+              </View>
               <ScrollView style={styles.modalContent}>
-                {YEARS.map((year) => (
+                {filteredYears.map((year) => (
                   <TouchableOpacity
                     key={year}
                     style={[
@@ -1123,6 +1186,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
                     onPress={() => {
                       setCarDetails({ ...carDetails, year: year });
                       setShowYearPicker(false);
+                      setYearSearchTerm(""); // Arama terimini temizle
                     }}
                   >
                     <Text
@@ -1159,8 +1223,16 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
                   <Text style={styles.modalCloseButton}>✕</Text>
                 </TouchableOpacity>
               </View>
+              <View style={styles.searchContainer}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Beygir gücü ara..."
+                  value={horsePowerSearchTerm}
+                  onChangeText={setHorsePowerSearchTerm}
+                />
+              </View>
               <ScrollView style={styles.modalContent}>
-                {ENGINE_POWERS.map((power) => (
+                {filteredHorsePowers.map((power) => (
                   <TouchableOpacity
                     key={power}
                     style={[
@@ -1171,6 +1243,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
                     onPress={() => {
                       setCarDetails({ ...carDetails, horsePower: power });
                       setShowHorsePowerPicker(false);
+                      setHorsePowerSearchTerm(""); // Arama terimini temizle
                     }}
                   >
                     <Text
@@ -1207,8 +1280,16 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
                   <Text style={styles.modalCloseButton}>✕</Text>
                 </TouchableOpacity>
               </View>
+              <View style={styles.searchContainer}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Motor hacmi ara..."
+                  value={engineSizeSearchTerm}
+                  onChangeText={setEngineSizeSearchTerm}
+                />
+              </View>
               <ScrollView style={styles.modalContent}>
-                {ENGINE_SIZES.map((size) => (
+                {filteredEngineSizes.map((size) => (
                   <TouchableOpacity
                     key={size}
                     style={[
@@ -1219,6 +1300,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
                     onPress={() => {
                       setCarDetails({ ...carDetails, engineSize: size });
                       setShowEngineSizePicker(false);
+                      setEngineSizeSearchTerm(""); // Arama terimini temizle
                     }}
                   >
                     <Text
@@ -1866,7 +1948,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: "70%",
+    maxHeight: "80%", // Yüksekliği artırdım
   },
   modalHeader: {
     flexDirection: "row",
@@ -2286,6 +2368,31 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  mapInfoContainer: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  mapInfoText: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  searchContainer: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: "#fff",
+  },
+  searchInput: {
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: COLORS.text.primary,
   },
 });
 

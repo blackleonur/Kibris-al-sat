@@ -13,7 +13,7 @@ import {
   Modal,
   Linking,
 } from "react-native";
-import { StackNavigationProp } from "@react-navigation/stack";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RouteProp } from "@react-navigation/native";
 import { RootStackParamList } from "../Types";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
@@ -22,14 +22,17 @@ import {
   faPaperPlane,
   faImage,
   faLocationDot,
+  faEllipsisV,
 } from "@fortawesome/free-solid-svg-icons";
 import apiurl from "../Apiurl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import WebView from "react-native-webview";
+import TokenService from "../services/TokenService";
+import { LinearGradient } from "expo-linear-gradient";
 
-type MessagesScreenNavigationProp = StackNavigationProp<
+type MessagesScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
   "Messages"
 >;
@@ -52,10 +55,11 @@ type ChatMessage = {
     latitude: number;
     longitude: number;
   };
+  senderId: string;
 };
 
 const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { userId, userName } = route.params;
+  const { userId: advertOwnerId, userName } = route.params;
   const [message, setMessage] = useState("");
   const flatListRef = useRef<FlatList>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -64,21 +68,49 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
+  // İlk olarak kullanıcı ID'sini al
   useEffect(() => {
-    fetchMessages();
-
-    // Her 5 saniyede bir mesajları güncelle
-    const interval = setInterval(fetchMessages, 5000);
-
-    // Component unmount olduğunda interval'i temizle
-    return () => clearInterval(interval);
+    const initializeUser = async () => {
+      try {
+        const userId = await TokenService.getUserId();
+        console.log("TokenService'den alınan kullanıcı ID:", userId);
+        if (userId) {
+          setCurrentUserId(userId);
+        } else {
+          console.error("Kullanıcı ID alınamadı!");
+        }
+      } catch (error) {
+        console.error("Kullanıcı ID alınırken hata:", error);
+      }
+    };
+    initializeUser();
   }, []);
 
-  const fetchMessages = async () => {
-    try {
-      const token = await AsyncStorage.getItem("userToken");
+  // currentUserId değiştiğinde mesajları getir
+  useEffect(() => {
+    if (currentUserId) {
+      fetchMessages();
+    }
+  }, [currentUserId]);
 
+  // Her 5 saniyede bir mesajları güncelle
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
+  }, [currentUserId]);
+
+  const fetchMessages = async () => {
+    if (!currentUserId) {
+      console.log("currentUserId henüz hazır değil, mesajlar getirilmiyor");
+      return;
+    }
+
+    try {
+      const token = await TokenService.getToken();
       if (!token) {
         throw new Error("Oturum açmanız gerekiyor");
       }
@@ -94,18 +126,35 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
       }
 
       const data = await response.json();
+      console.log("API'den gelen mesajlar:", data.$values);
 
       // API'den gelen mesajları ChatMessage formatına dönüştür
-      const formattedMessages: ChatMessage[] = data.$values.map((msg: any) => ({
-        id: msg.id.toString(),
-        text: msg.content,
-        time: msg.timestamp,
-        displayTime: new Date(msg.timestamp).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        isMe: msg.senderId === userId,
-      }));
+      const formattedMessages: ChatMessage[] = data.$values.map((msg: any) => {
+        // Mesajın gönderen veya alıcı ID'si ile mevcut kullanıcının ID'sini karşılaştır
+        const isCurrentUserSender = msg.senderId === currentUserId;
+        const isCurrentUserReceiver = msg.receiverId === currentUserId;
+
+        console.log("Mesaj detayları:", {
+          mesajGonderenId: msg.senderId,
+          mesajAliciId: msg.receiverId,
+          mevcutKullaniciId: currentUserId,
+          gonderenMi: isCurrentUserSender,
+          aliciMi: isCurrentUserReceiver,
+          mesajIcerigi: msg.content,
+        });
+
+        return {
+          id: msg.id.toString(),
+          text: msg.content,
+          time: msg.timestamp,
+          displayTime: new Date(msg.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          isMe: isCurrentUserSender, // Eğer gönderen biz isek sağda göster
+          senderId: msg.senderId,
+        };
+      });
 
       // Mesajları tarihe göre sırala (en yeni mesaj en altta)
       const sortedMessages = formattedMessages.sort(
@@ -125,7 +174,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const sendMessage = async () => {
-    if (message.trim() === "") return;
+    if (message.trim() === "" || !currentUserId) return;
 
     const currentTime = new Date().toLocaleTimeString([], {
       hour: "2-digit",
@@ -133,9 +182,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
     });
 
     try {
-      // Token'ı AsyncStorage'dan al
-      const token = await AsyncStorage.getItem("userToken");
-
+      const token = await TokenService.getToken();
       if (!token) {
         throw new Error("Oturum açmanız gerekiyor");
       }
@@ -144,10 +191,10 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // Token'ı ekle
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          receiverId: userId,
+          receiverId: advertOwnerId,
           content: message,
         }),
       });
@@ -164,6 +211,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
         time: currentTime,
         displayTime: currentTime,
         isMe: true,
+        senderId: currentUserId,
       };
 
       // Yeni mesajı listenin sonuna ekle
@@ -214,9 +262,8 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const sendImage = async (imageAsset: ImagePicker.ImagePickerAsset) => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
-
-      if (!token) {
+      const token = await TokenService.getToken();
+      if (!token || !currentUserId) {
         throw new Error("Oturum açmanız gerekiyor");
       }
 
@@ -273,6 +320,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
         }),
         isMe: true,
         imageUrl: imageUrl,
+        senderId: currentUserId,
       };
 
       setMessages([...messages, newMessage]);
@@ -297,8 +345,8 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
       const location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
 
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
+      const token = await TokenService.getToken();
+      if (!token || !currentUserId) {
         throw new Error("Oturum açmanız gerekiyor");
       }
 
@@ -312,7 +360,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          receiverId: userId,
+          receiverId: advertOwnerId,
           latitude,
           longitude,
           message: "📍 Konum paylaşıldı",
@@ -338,6 +386,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
         isMe: true,
         imageUrl: mapImageUrl,
         location: { latitude, longitude },
+        senderId: currentUserId,
       };
 
       setMessages([...messages, newMessage]);
@@ -432,28 +481,30 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
   );
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={["#8adbd2", "#f5f5f5"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <FontAwesomeIcon icon={faArrowLeft} size={25} color="#fff" />
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#8adbd2" />
         </TouchableOpacity>
-        <View style={styles.headerUserInfo}>
-          <Image
-            source={{
-              uri: `https://randomuser.me/api/portraits/${
-                userId.startsWith("1") ? "women" : "men"
-              }/${userId.slice(-2)}.jpg`,
-            }}
-            style={styles.headerAvatar}
-          />
-          <Text style={styles.headerUserName}>{userName}</Text>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>{userName}</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.headerButton}>
+            <FontAwesomeIcon icon={faEllipsisV} size={20} color="#8adbd2" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      <View style={{ flex: 1 }}>
+      <View style={styles.messagesContainer}>
         <FlatList
           ref={flatListRef}
           data={messages}
@@ -461,15 +512,25 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messagesList}
           onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={() =>
+            flatListRef.current?.scrollToEnd({ animated: false })
+          }
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 0,
+            autoscrollToTopThreshold: 10,
+          }}
         />
       </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
         style={styles.keyboardView}
       >
-        <View style={styles.inputBackground}>
+        <LinearGradient
+          colors={["#fff", "#f8f8f8"]}
+          style={styles.inputBackground}
+        >
           <View style={styles.inputContainer}>
             <TouchableOpacity style={styles.attachButton} onPress={pickImage}>
               <FontAwesomeIcon icon={faImage} size={25} color="#8adbd2" />
@@ -502,7 +563,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
               />
             </TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
       </KeyboardAvoidingView>
 
       <Modal
@@ -595,44 +656,64 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#8adbd2",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
     paddingVertical: 15,
     paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.1)",
+    paddingTop: Platform.OS === "ios" ? 15 : 15,
+    marginTop: Platform.OS === "ios" ? 45 : 10,
+    marginHorizontal: 10,
+    borderRadius: 15,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   backButton: {
     padding: 5,
-    paddingTop: 20,
     marginRight: 10,
+    marginBottom: 5,
   },
-  headerUserInfo: {
-    flexDirection: "row",
+  headerTitleContainer: {
+    flex: 1,
     alignItems: "center",
-    paddingTop: 20,
+    marginLeft: 10,
+    marginBottom: 5,
   },
-  headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  headerUserName: {
+  headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#8adbd2",
+    marginBottom: 4,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 5,
+  },
+  headerButton: {
+    padding: 5,
+    marginLeft: 10,
+    marginBottom: 2,
+  },
+  messagesContainer: {
+    flex: 1,
+    backgroundColor: "transparent",
   },
   messagesList: {
     padding: 10,
@@ -684,13 +765,12 @@ const styles = StyleSheet.create({
     color: "#999",
   },
   keyboardView: {
-    backgroundColor: "#fff",
+    backgroundColor: "transparent",
   },
   inputBackground: {
-    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: "#eee",
-    paddingBottom: 24,
+    borderTopColor: "rgba(255,255,255,0.2)",
+    paddingBottom: Platform.OS === "ios" ? 0 : 0,
   },
   inputContainer: {
     flexDirection: "row",
@@ -708,23 +788,26 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#fff",
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 8,
     maxHeight: 120,
+    borderWidth: 1,
+    borderColor: "#eee",
   },
   sendButton: {
-    backgroundColor: "trasnparent",
+    backgroundColor: "transparent",
     width: 45,
     height: 45,
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 10,
-    color: "#8adbd2",
   },
-  sendButtonDisabled: {},
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
   messageImage: {
     width: 200,
     height: 160,

@@ -200,8 +200,11 @@ const AdvertScreen: React.FC<Props> = ({ route, navigation }) => {
 
       if (!advert) return;
 
+      const chatId = String(advert.userId);
+
       navigation.navigate("Messages", {
-        chatId: advert.userId,
+        userId: chatId,
+        userName: advert.sellerName || "",
       });
     } catch (error) {
       console.error("Mesaj ekranına geçiş yapılırken hata:", error);

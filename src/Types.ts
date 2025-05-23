@@ -17,7 +17,7 @@ export type RootStackParamList = {
   };
   Profile: undefined;
   MessagesArea: undefined;
-  Messages: { chatId: string };
+  Messages: { userId: string; userName: string };
   AddAdvert: { adId?: number };
   PersonalInfo: {
     email: string;
@@ -49,4 +49,15 @@ export type Advert = {
   status: string;
   address: string;
   categoryName: string;
+};
+
+export type Conversation = {
+  userId: string;
+  lastMessage: string;
+  lastMessageTime: string;
+  user: {
+    id: string;
+    fullName: string;
+    profilePictureUrl: string | null;
+  };
 };

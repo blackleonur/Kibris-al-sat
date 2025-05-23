@@ -8,9 +8,10 @@ import {
   Image,
   SafeAreaView,
   ActivityIndicator,
+  Platform,
 } from "react-native";
-import { StackNavigationProp } from "@react-navigation/stack";
-import { RootStackParamList } from "../Types";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackParamList, Conversation } from "../Types";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import {
   faArrowLeft,
@@ -19,8 +20,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import apiurl from "../Apiurl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 
-type MessagesAreaScreenNavigationProp = StackNavigationProp<
+type MessagesAreaScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
   "MessagesArea"
 >;
@@ -29,30 +31,27 @@ type Props = {
   navigation: MessagesAreaScreenNavigationProp;
 };
 
-type Message = {
-  id: string;
-  sender: {
-    id: string;
-    name: string;
-    avatar: string;
-  };
-  lastMessage: string;
-  time: string;
-  unread: boolean;
-};
-
 const MessagesAreaScreen: React.FC<Props> = ({ navigation }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchMessages();
+    fetchConversations();
   }, []);
 
-  const fetchMessages = async () => {
+  // 4 saniyede bir mesajları yenile
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchConversations();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchConversations = async () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
-      const response = await fetch(`${apiurl}/api/messages/conversations`, {
+      const response = await fetch(`${apiurl}/api/messages/conversation-list`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -66,56 +65,11 @@ const MessagesAreaScreen: React.FC<Props> = ({ navigation }) => {
         throw new Error("Mesajlar yüklenirken bir hata oluştu");
       }
 
-      const conversations = data.$values || [];
-
-      // Mesajları kullanıcılara göre grupla ve son mesajı al
-      const lastMessagesByUser = new Map();
-
-      conversations.forEach((item: any) => {
-        const otherUserId = item.senderId;
-        const currentMessage = {
-          timestamp: new Date(item.timestamp),
-          message: item,
-        };
-
-        if (
-          !lastMessagesByUser.has(otherUserId) ||
-          new Date(lastMessagesByUser.get(otherUserId).timestamp) <
-            currentMessage.timestamp
-        ) {
-          lastMessagesByUser.set(otherUserId, currentMessage);
-        }
-      });
-
-      const formattedMessages: Message[] = Array.from(
-        lastMessagesByUser.values()
-      ).map(({ message }) => ({
-        id: message.id?.toString(),
-        sender: {
-          id: message.senderId,
-          name: "Kullanıcı " + message.senderId.substring(0, 5),
-          avatar: `https://ui-avatars.com/api/?name=${message.senderId.substring(
-            0,
-            2
-          )}&background=random`,
-        },
-        lastMessage: message.content || "Mesaj yok",
-        time: formatMessageTime(message.timestamp),
-        unread: false,
-      }));
-
-      // Mesajları tarihe göre sırala (en yeni en üstte)
-      formattedMessages.sort((a, b) => {
-        const dateA = new Date(a.time);
-        const dateB = new Date(b.time);
-        return dateB.getTime() - dateA.getTime();
-      });
-
-      console.log("Son mesajlar:", formattedMessages);
-      setMessages(formattedMessages);
+      const conversationList = data.$values || [];
+      setConversations(conversationList);
     } catch (error) {
       console.error("Mesajlar yüklenirken hata detayı:", error);
-      setMessages([]);
+      setConversations([]);
     } finally {
       setLoading(false);
     }
@@ -145,29 +99,34 @@ const MessagesAreaScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const renderItem = ({ item }: { item: Message }) => (
+  const renderItem = ({ item }: { item: Conversation }) => (
     <TouchableOpacity
       style={styles.messageItem}
       onPress={() =>
         navigation.navigate("Messages", {
-          userId: item.sender.id,
-          userName: item.sender.name,
+          userId: item.user.id,
+          userName: item.user.fullName,
         })
       }
     >
       <View style={styles.avatarContainer}>
-        <Image source={{ uri: item.sender.avatar }} style={styles.avatar} />
-        {item.unread && <View style={styles.unreadBadge} />}
+        <Image
+          source={{
+            uri:
+              item.user.profilePictureUrl ||
+              `https://ui-avatars.com/api/?name=${item.user.fullName}&background=random`,
+          }}
+          style={styles.avatar}
+        />
       </View>
       <View style={styles.messageContent}>
         <View style={styles.messageHeader}>
-          <Text style={styles.senderName}>{item.sender.name}</Text>
-          <Text style={styles.messageTime}>{item.time}</Text>
+          <Text style={styles.senderName}>{item.user.fullName}</Text>
+          <Text style={styles.messageTime}>
+            {formatMessageTime(item.lastMessageTime)}
+          </Text>
         </View>
-        <Text
-          style={[styles.lastMessage, item.unread && styles.unreadMessage]}
-          numberOfLines={1}
-        >
+        <Text style={styles.lastMessage} numberOfLines={1}>
           {item.lastMessage}
         </Text>
       </View>
@@ -175,21 +134,29 @@ const MessagesAreaScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <LinearGradient
+      colors={["#8adbd2", "#f5f5f5"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#333" />
+          <FontAwesomeIcon icon={faArrowLeft} size={20} color="#8adbd2" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Mesajlar</Text>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Mesajlar</Text>
+          <Text style={styles.headerSubtitle}>Tüm konuşmalarınız burada</Text>
+        </View>
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.headerButton}>
-            <FontAwesomeIcon icon={faSearch} size={20} color="#333" />
+            <FontAwesomeIcon icon={faSearch} size={20} color="#8adbd2" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton}>
-            <FontAwesomeIcon icon={faEllipsisV} size={20} color="#333" />
+            <FontAwesomeIcon icon={faEllipsisV} size={20} color="#8adbd2" />
           </TouchableOpacity>
         </View>
       </View>
@@ -200,58 +167,92 @@ const MessagesAreaScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={messages}
+          data={conversations}
           renderItem={renderItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.user.id}
           contentContainerStyle={styles.messagesList}
           refreshing={loading}
-          onRefresh={fetchMessages}
+          onRefresh={fetchConversations}
         />
       )}
-    </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f8f8",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "#fff",
-    paddingVertical: 15,
+    paddingVertical: 12,
     paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    paddingTop: Platform.OS === "ios" ? 15 : 15,
+    marginTop: Platform.OS === "ios" ? 45 : 30,
+    marginHorizontal: 10,
+    borderRadius: 15,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   backButton: {
     padding: 5,
   },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: "center",
+    marginLeft: 10,
+    justifyContent: "center",
+    marginBottom: 5,
+  },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
-    color: "#333",
+    color: "#8adbd2",
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 2,
   },
   headerRight: {
     flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 5,
   },
   headerButton: {
     padding: 5,
     marginLeft: 15,
+    marginBottom: 2,
   },
   messagesList: {
     paddingVertical: 10,
   },
   messageItem: {
     flexDirection: "row",
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     paddingVertical: 15,
     paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    marginHorizontal: 10,
+    marginVertical: 5,
+    borderRadius: 15,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   avatarContainer: {
     position: "relative",
@@ -261,15 +262,6 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-  },
-  unreadBadge: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#8adbd2",
     borderWidth: 2,
     borderColor: "#fff",
   },
@@ -295,10 +287,6 @@ const styles = StyleSheet.create({
   lastMessage: {
     fontSize: 14,
     color: "#666",
-  },
-  unreadMessage: {
-    fontWeight: "bold",
-    color: "#333",
   },
   loadingContainer: {
     flex: 1,
