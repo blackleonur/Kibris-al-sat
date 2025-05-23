@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../Types";
@@ -34,6 +35,7 @@ const RegisterScreen = () => {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [passwordRequirements, setPasswordRequirements] = useState({
     hasUpperCase: false,
     hasSpecialChar: false,
@@ -84,15 +86,18 @@ const RegisterScreen = () => {
 
   const handleRegister = async () => {
     setError("");
+    setIsLoading(true);
 
     // Validasyonlar
     if (!validateEmail(email)) {
       setError("Geçerli bir e-posta adresi giriniz.");
+      setIsLoading(false);
       return;
     }
 
     if (phone.replace(/\D/g, "").length !== 10) {
       setError("Telefon numarası 10 haneli olmalıdır.");
+      setIsLoading(false);
       return;
     }
 
@@ -103,16 +108,19 @@ const RegisterScreen = () => {
       !passwordRequirements.hasMinLength
     ) {
       setError("Şifre gereksinimleri karşılanmıyor.");
+      setIsLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setError("Şifreler eşleşmiyor!");
+      setIsLoading(false);
       return;
     }
 
     if (!name.trim()) {
       setError("İsim alanı boş bırakılamaz.");
+      setIsLoading(false);
       return;
     }
 
@@ -147,6 +155,8 @@ const RegisterScreen = () => {
       }
     } catch (err) {
       setError("Sunucuya bağlanılamadı.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -400,14 +410,24 @@ const RegisterScreen = () => {
               {error && <Text style={styles.errorText}>{error}</Text>}
 
               <TouchableOpacity
-                style={styles.button}
+                style={[styles.button, isLoading && styles.buttonDisabled]}
                 onPress={
                   activeTab === "register" ? handleRegister : handleLogin
                 }
+                disabled={isLoading}
               >
-                <Text style={styles.buttonText}>
-                  {activeTab === "register" ? "Kayıt Ol" : "Giriş Yap"}
-                </Text>
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={[styles.buttonText, styles.loadingText]}>
+                      Doğrulama maili gönderiliyor...
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.buttonText}>
+                    {activeTab === "register" ? "Kayıt Ol" : "Giriş Yap"}
+                  </Text>
+                )}
               </TouchableOpacity>
 
               {activeTab === "login" && (
@@ -513,6 +533,9 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
   buttonText: {
     color: "#fff",
     fontSize: 18,
@@ -562,6 +585,14 @@ const styles = StyleSheet.create({
   },
   requirementMet: {
     color: "#48BB78",
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginLeft: 10,
   },
 });
 

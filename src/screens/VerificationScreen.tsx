@@ -201,7 +201,7 @@ const VerificationScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.header}>
             <Text style={styles.title}>Doğrulama Kodu</Text>
             <Text style={styles.subtitle}>
-              Telefonunuza gönderilen 6 haneli doğrulama kodunu giriniz.
+              Mail adresinize gönderilen 6 haneli doğrulama kodunu giriniz.
             </Text>
           </View>
 

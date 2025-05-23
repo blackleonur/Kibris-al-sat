@@ -817,7 +817,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       <TouchableOpacity
         style={styles.advertItem}
         onPress={() => navigation.navigate("Advert", { advertId: item.id })}
-      >     
+      >
         <View>
           <View style={styles.advertImageContainer}>
             {imageUrl ? (
@@ -858,11 +858,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               style={[styles.imageActionButton, styles.messageButton]}
             >
               <FontAwesomeIcon icon={faEnvelope} size={18} color="#fff" />
+              <Text style={styles.imageActionText}>Mesaj Gönder</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.imageActionButton, styles.favoriteButton]}
             >
               <FontAwesomeIcon icon={faHeart} size={18} color="#fff" />
+              <Text style={styles.imageActionText}>Favoriye Ekle</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1842,7 +1844,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginVertical: 8,
     marginTop: 12,
-    padding: 16,
+    padding: 12,
     width: "95%",
     alignSelf: "center",
     shadowColor: "#000",
@@ -1854,8 +1856,8 @@ const styles = StyleSheet.create({
     minHeight: 180,
   },
   advertImageContainer: {
-    width: 140,
-    height: 140,
+    width: 120,
+    height: 120,
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: COLORS.background,
@@ -1869,19 +1871,31 @@ const styles = StyleSheet.create({
   },
   imageActions: {
     flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 12,
-    width: 140,
+    justifyContent: "space-between",
+    gap: 80,
+    marginTop: 8,
+    width: 120,
+    paddingLeft: 10,
   },
   imageActionButton: {
-    padding: 8,
-    borderRadius: 12,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 6,
+    borderRadius: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    gap: 6,
+  },
+  imageActionText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "500",
+    marginLeft: 5,
   },
   messageButton: {
     backgroundColor: COLORS.primary,
@@ -1891,7 +1905,7 @@ const styles = StyleSheet.create({
   },
   advertInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 12,
     justifyContent: "space-between",
   },
   advertHeader: {
@@ -1905,11 +1919,11 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   advertTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
     color: COLORS.text.primary,
     letterSpacing: 0.5,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   priceContainer: {
     flexDirection: "row",
@@ -1939,10 +1953,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   advertDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.text.secondary,
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 8,
   },
   advertFooter: {
     flexDirection: "row",

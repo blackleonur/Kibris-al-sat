@@ -15,7 +15,7 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
-import { StackScreenProps } from "@react-navigation/stack";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../Types";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import {
@@ -26,6 +26,7 @@ import {
   faMapMarkerAlt,
   faTrash,
   faPlus,
+  faCheckCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import apiurl from "../Apiurl";
 import MapView, { Marker } from "react-native-maps";
@@ -53,7 +54,7 @@ const COLORS = {
   shadow: "rgba(26, 33, 56, 0.1)",
 };
 
-type Props = StackScreenProps<RootStackParamList, "AddAdvert">;
+type Props = NativeStackScreenProps<RootStackParamList, "AddAdvert">;
 
 // Kategori tipleri
 type Category = {
@@ -62,6 +63,85 @@ type Category = {
   parentId?: number;
   icon?: string;
 };
+
+// Sabit seçenekleri tanımlayalım
+const BODY_TYPES = [
+  "Sedan",
+  "Hatchback",
+  "Station Wagon",
+  "SUV",
+  "Crossover",
+  "Pickup",
+  "Van",
+];
+
+const TRANSMISSION_TYPES = ["Manuel", "Otomatik", "Yarı Otomatik", "CVT"];
+
+const FUEL_TYPES = [
+  "Benzin",
+  "Dizel",
+  "LPG",
+  "Hibrit",
+  "Elektrik",
+  "Benzin & LPG",
+];
+
+// Motor gücü seçenekleri
+const ENGINE_POWERS = [
+  "25 hp'ye kadar",
+  "26 - 50 hp",
+  "51 - 75 hp",
+  "76 - 100 hp",
+  "101 - 125 hp",
+  "126 - 150 hp",
+  "151 - 175 hp",
+  "176 - 200 hp",
+  "201 - 225 hp",
+  "226 - 250 hp",
+  "251 - 275 hp",
+  "276 - 300 hp",
+  "301 - 325 hp",
+  "326 - 350 hp",
+  "351 - 375 hp",
+  "376 - 400 hp",
+  "401 - 425 hp",
+  "426 - 450 hp",
+  "451 - 475 hp",
+  "476 - 500 hp",
+  "501 - 525 hp",
+  "526 - 550 hp",
+  "551 - 575 hp",
+  "576 - 600 hp",
+  "601 hp ve üzeri",
+];
+
+// Motor hacmi seçenekleri
+const ENGINE_SIZES = [
+  "0 - 49 cm³",
+  "50 - 125 cm³",
+  "126 - 250 cm³",
+  "251 - 400 cm³",
+  "401 - 600 cm³",
+  "601 - 750 cm³",
+  "751 - 900 cm³",
+  "901 - 1000 cm³",
+  "1001 - 1200 cm³",
+  "1301 - 1600 cm³",
+  "1601 - 1800 cm³",
+  "1801 - 2000 cm³",
+  "2001 - 2500 cm³",
+  "2501 - 3000 cm³",
+  "3001 - 3500 cm³",
+  "3501 - 4000 cm³",
+  "4001 - 4500 cm³",
+  "4501 - 5000 cm³",
+  "5001 - 5500 cm³",
+  "5501 - 6000 cm³",
+  "6001 cm³ ve üzeri",
+];
+
+// Yıl seçenekleri
+const YEARS = Array.from({ length: 66 }, (_, i) => (2025 - i).toString());
 
 const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
   // State'ler
@@ -106,6 +186,10 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
     transmission: "",
     fuelType: "",
   });
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const [showHorsePowerPicker, setShowHorsePowerPicker] = useState(false);
+  const [showEngineSizePicker, setShowEngineSizePicker] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Döviz kurunu getiren fonksiyon
   const fetchExchangeRate = async () => {
@@ -814,29 +898,35 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
 
   // TL fiyatı değiştiğinde GBP karşılığını hesapla
   const handleTRYPriceChange = (text: string) => {
-    if (/^\d*$/.test(text)) {
-      setPrice(text);
-      if (exchangeRate && text) {
-        // TL'den GBP'ye çevirirken yukarı yuvarla
-        const gbpValue = Math.ceil(parseFloat(text) * exchangeRate);
-        setPriceGBP(gbpValue.toString());
-      } else {
-        setPriceGBP("");
-      }
+    // Sadece sayıları al
+    const numbers = text.replace(/[^\d]/g, "");
+    // Her 3 basamaktan sonra nokta ekle
+    const formattedNumber = numbers.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    setPrice(formattedNumber);
+
+    if (exchangeRate && numbers) {
+      // TL'den GBP'ye çevirirken yukarı yuvarla
+      const gbpValue = Math.ceil(parseFloat(numbers) * exchangeRate);
+      setPriceGBP(gbpValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."));
+    } else {
+      setPriceGBP("");
     }
   };
 
   // GBP fiyatı değiştiğinde TL karşılığını hesapla
   const handleGBPPriceChange = (text: string) => {
-    if (/^\d*$/.test(text)) {
-      setPriceGBP(text);
-      if (exchangeRate && text) {
-        // GBP'den TL'ye çevirirken yukarı yuvarla
-        const tryValue = Math.ceil(parseFloat(text) / exchangeRate);
-        setPrice(tryValue.toString());
-      } else {
-        setPrice("");
-      }
+    // Sadece sayıları al
+    const numbers = text.replace(/[^\d]/g, "");
+    // Her 3 basamaktan sonra nokta ekle
+    const formattedNumber = numbers.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    setPriceGBP(formattedNumber);
+
+    if (exchangeRate && numbers) {
+      // GBP'den TL'ye çevirirken yukarı yuvarla
+      const tryValue = Math.ceil(parseFloat(numbers) / exchangeRate);
+      setPrice(tryValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."));
+    } else {
+      setPrice("");
     }
   };
 
@@ -850,25 +940,35 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
 
         <View style={styles.carDetailsRow}>
           <View style={styles.carDetailsField}>
-            <Text style={styles.carDetailsLabel}>Yıl</Text>
-            <TextInput
-              style={styles.carDetailsInput}
-              value={carDetails.year}
-              onChangeText={(text) =>
-                setCarDetails({ ...carDetails, year: text })
-              }
-              placeholder="Yıl"
-              keyboardType="numeric"
-            />
+            <Text style={styles.carDetailsLabel}>Model Yılı</Text>
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => setShowYearPicker(true)}
+            >
+              <Text style={styles.pickerButtonText}>
+                {carDetails.year || "Model yılı seçin"}
+              </Text>
+              <FontAwesomeIcon icon={faChevronDown} size={16} color="#666" />
+            </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={styles.carDetailsRow}>
           <View style={styles.carDetailsField}>
             <Text style={styles.carDetailsLabel}>Kilometre</Text>
             <TextInput
               style={styles.carDetailsInput}
               value={carDetails.kilometre}
-              onChangeText={(text) =>
-                setCarDetails({ ...carDetails, kilometre: text })
-              }
+              onChangeText={(text) => {
+                // Sadece sayıları al
+                const numbers = text.replace(/[^\d]/g, "");
+                // Her 3 basamaktan sonra nokta ekle
+                const formattedNumber = numbers.replace(
+                  /\B(?=(\d{3})+(?!\d))/g,
+                  "."
+                );
+                setCarDetails({ ...carDetails, kilometre: formattedNumber });
+              }}
               placeholder="Kilometre"
               keyboardType="numeric"
             />
@@ -878,68 +978,264 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
         <View style={styles.carDetailsRow}>
           <View style={styles.carDetailsField}>
             <Text style={styles.carDetailsLabel}>Beygir Gücü</Text>
-            <TextInput
-              style={styles.carDetailsInput}
-              value={carDetails.horsePower}
-              onChangeText={(text) =>
-                setCarDetails({ ...carDetails, horsePower: text })
-              }
-              placeholder="Beygir Gücü"
-              keyboardType="numeric"
-            />
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => setShowHorsePowerPicker(true)}
+            >
+              <Text style={styles.pickerButtonText}>
+                {carDetails.horsePower || "Beygir gücü seçin"}
+              </Text>
+              <FontAwesomeIcon icon={faChevronDown} size={16} color="#666" />
+            </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={styles.carDetailsRow}>
           <View style={styles.carDetailsField}>
             <Text style={styles.carDetailsLabel}>Motor Hacmi</Text>
-            <TextInput
-              style={styles.carDetailsInput}
-              value={carDetails.engineSize}
-              onChangeText={(text) =>
-                setCarDetails({ ...carDetails, engineSize: text })
-              }
-              placeholder="Motor Hacmi"
-              keyboardType="numeric"
-            />
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => setShowEngineSizePicker(true)}
+            >
+              <Text style={styles.pickerButtonText}>
+                {carDetails.engineSize || "Motor hacmi seçin"}
+              </Text>
+              <FontAwesomeIcon icon={faChevronDown} size={16} color="#666" />
+            </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.carDetailsRow}>
           <View style={styles.carDetailsField}>
             <Text style={styles.carDetailsLabel}>Kasa Tipi</Text>
-            <TextInput
-              style={styles.carDetailsInput}
-              value={carDetails.bodyType}
-              onChangeText={(text) =>
-                setCarDetails({ ...carDetails, bodyType: text })
-              }
-              placeholder="Kasa Tipi"
-            />
+            <View style={styles.optionsContainer}>
+              {BODY_TYPES.map((type) => (
+                <TouchableOpacity
+                  key={`type-${type}`}
+                  style={[
+                    styles.optionButton,
+                    carDetails.bodyType === type && styles.selectedOptionButton,
+                  ]}
+                  onPress={() =>
+                    setCarDetails({ ...carDetails, bodyType: type })
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.optionText,
+                      carDetails.bodyType === type && styles.selectedOptionText,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
+        </View>
+
+        <View style={styles.carDetailsRow}>
           <View style={styles.carDetailsField}>
             <Text style={styles.carDetailsLabel}>Vites</Text>
-            <TextInput
-              style={styles.carDetailsInput}
-              value={carDetails.transmission}
-              onChangeText={(text) =>
-                setCarDetails({ ...carDetails, transmission: text })
-              }
-              placeholder="Vites"
-            />
+            <View style={styles.optionsContainer}>
+              {TRANSMISSION_TYPES.map((type) => (
+                <TouchableOpacity
+                  key={`transmission-${type}`}
+                  style={[
+                    styles.optionButton,
+                    carDetails.transmission === type &&
+                      styles.selectedOptionButton,
+                  ]}
+                  onPress={() =>
+                    setCarDetails({ ...carDetails, transmission: type })
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.optionText,
+                      carDetails.transmission === type &&
+                        styles.selectedOptionText,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
 
         <View style={styles.carDetailsRow}>
           <View style={styles.carDetailsField}>
             <Text style={styles.carDetailsLabel}>Yakıt Tipi</Text>
-            <TextInput
-              style={styles.carDetailsInput}
-              value={carDetails.fuelType}
-              onChangeText={(text) =>
-                setCarDetails({ ...carDetails, fuelType: text })
-              }
-              placeholder="Yakıt Tipi"
-            />
+            <View style={styles.optionsContainer}>
+              {FUEL_TYPES.map((type) => (
+                <TouchableOpacity
+                  key={`fuel-${type}`}
+                  style={[
+                    styles.optionButton,
+                    carDetails.fuelType === type && styles.selectedOptionButton,
+                  ]}
+                  onPress={() =>
+                    setCarDetails({ ...carDetails, fuelType: type })
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.optionText,
+                      carDetails.fuelType === type && styles.selectedOptionText,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
+
+        {/* Yıl Seçici Modal */}
+        <Modal
+          visible={showYearPicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowYearPicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Model Yılı Seçin</Text>
+                <TouchableOpacity
+                  style={styles.modalCloseButtonContainer}
+                  onPress={() => setShowYearPicker(false)}
+                >
+                  <Text style={styles.modalCloseButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalContent}>
+                {YEARS.map((year) => (
+                  <TouchableOpacity
+                    key={year}
+                    style={[
+                      styles.modalItem,
+                      carDetails.year === year && styles.selectedModalItem,
+                    ]}
+                    onPress={() => {
+                      setCarDetails({ ...carDetails, year: year });
+                      setShowYearPicker(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalItemText,
+                        carDetails.year === year &&
+                          styles.selectedModalItemText,
+                      ]}
+                    >
+                      {year}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Beygir Gücü Seçici Modal */}
+        <Modal
+          visible={showHorsePowerPicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowHorsePowerPicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Beygir Gücü Seçin</Text>
+                <TouchableOpacity
+                  style={styles.modalCloseButtonContainer}
+                  onPress={() => setShowHorsePowerPicker(false)}
+                >
+                  <Text style={styles.modalCloseButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalContent}>
+                {ENGINE_POWERS.map((power) => (
+                  <TouchableOpacity
+                    key={power}
+                    style={[
+                      styles.modalItem,
+                      carDetails.horsePower === power &&
+                        styles.selectedModalItem,
+                    ]}
+                    onPress={() => {
+                      setCarDetails({ ...carDetails, horsePower: power });
+                      setShowHorsePowerPicker(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalItemText,
+                        carDetails.horsePower === power &&
+                          styles.selectedModalItemText,
+                      ]}
+                    >
+                      {power}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Motor Hacmi Seçici Modal */}
+        <Modal
+          visible={showEngineSizePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowEngineSizePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Motor Hacmi Seçin</Text>
+                <TouchableOpacity
+                  style={styles.modalCloseButtonContainer}
+                  onPress={() => setShowEngineSizePicker(false)}
+                >
+                  <Text style={styles.modalCloseButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalContent}>
+                {ENGINE_SIZES.map((size) => (
+                  <TouchableOpacity
+                    key={size}
+                    style={[
+                      styles.modalItem,
+                      carDetails.engineSize === size &&
+                        styles.selectedModalItem,
+                    ]}
+                    onPress={() => {
+                      setCarDetails({ ...carDetails, engineSize: size });
+                      setShowEngineSizePicker(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalItemText,
+                        carDetails.engineSize === size &&
+                          styles.selectedModalItemText,
+                      ]}
+                    >
+                      {size}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   };
@@ -1047,7 +1343,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
       const advertData = {
         title: title.trim(),
         description: description.trim(),
-        price: parseInt(price),
+        price: parseInt(price.replace(/\./g, "")),
         currency: "TRY",
         categoryId: lastSelectedCategoryId,
         status: "Beklemede",
@@ -1065,7 +1361,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
                 ?.name
             : "",
           year: parseInt(carDetails.year),
-          kilometre: parseInt(carDetails.kilometre),
+          kilometre: parseInt(carDetails.kilometre.replace(/\./g, "")),
           horsePower: parseInt(carDetails.horsePower),
           engineSize: parseInt(carDetails.engineSize),
           bodyType: carDetails.bodyType,
@@ -1116,12 +1412,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
       const result = await response.json();
       console.log("İlan başarıyla eklendi:", result);
 
-      Alert.alert("Başarılı", "İlanınız başarıyla eklendi!", [
-        {
-          text: "Tamam",
-          onPress: () => navigation.navigate("Home"),
-        },
-      ]);
+      setShowSuccessModal(true);
     } catch (error: any) {
       console.error("İlan eklenirken hata oluştu:", error);
 
@@ -1354,6 +1645,48 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
     }
   };
 
+  // Başarı modalını render etme
+  const renderSuccessModal = () => {
+    return (
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.successModalContainer}>
+            <View style={styles.successModalContent}>
+              <View style={styles.successIconContainer}>
+                <FontAwesomeIcon
+                  icon={faCheckCircle}
+                  size={50}
+                  color={COLORS.success}
+                />
+              </View>
+              <Text style={styles.successTitle}>
+                İlanınız Başarıyla Yayınlandı!
+              </Text>
+              <Text style={styles.successDescription}>
+                İlanınız yayınlanmıştır ilanlarım kısmından kontrol
+                sağlayabilirsiniz.
+              </Text>
+              <TouchableOpacity
+                style={styles.successButton}
+                onPress={() => {
+                  setShowSuccessModal(false);
+                  navigation.navigate("Home");
+                }}
+              >
+                <Text style={styles.successButtonText}>Tamam</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <LinearGradient
       colors={["#8adbd2", "#f5f5f5"]}
@@ -1408,6 +1741,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
 
         {renderPickerModal()}
         {renderMapModal()}
+        {renderSuccessModal()}
       </SafeAreaView>
     </LinearGradient>
   );
@@ -1547,9 +1881,18 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: COLORS.text.primary,
   },
+  modalCloseButtonContainer: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.05)",
+  },
   modalCloseButton: {
-    fontSize: 20,
+    fontSize: 24,
     color: COLORS.text.tertiary,
+    fontWeight: "bold",
   },
   modalContent: {
     maxHeight: "70%",
@@ -1830,6 +2173,33 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     fontWeight: "500",
   },
+  optionsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 10,
+    marginHorizontal: -5,
+    maxHeight: 200, // Seçeneklerin yüksekliğini sınırla
+  },
+  optionButton: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    margin: 5,
+  },
+  selectedOptionButton: {
+    backgroundColor: "#8adbd2",
+  },
+  optionText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  selectedOptionText: {
+    color: "#fff",
+    fontWeight: "500",
+  },
   carDetailsContainer: {
     marginTop: 20,
     backgroundColor: "#fff",
@@ -1860,6 +2230,62 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     color: COLORS.text.primary,
+  },
+  successModalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  successModalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 30,
+    width: "85%",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  successIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(72, 187, 120, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: COLORS.text.primary,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  successDescription: {
+    fontSize: 16,
+    color: COLORS.text.secondary,
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  successButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    paddingVertical: 15,
+    paddingHorizontal: 40,
+    alignItems: "center",
+  },
+  successButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
 
