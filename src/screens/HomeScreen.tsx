@@ -816,7 +816,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <TouchableOpacity
         style={[styles.advertItem, isOwnAdvert && styles.ownAdvertItem]}
-        onPress={() => navigation.navigate("Advert", { advertId: item.id })}
+        onPress={() => {
+          if (isOwnAdvert) {
+            navigation.navigate("MyAds");
+          } else {
+            navigation.navigate("Advert", { advertId: item.id });
+          }
+        }}
       >
         <View style={styles.advertImageContainer}>
           {imageUrl ? (

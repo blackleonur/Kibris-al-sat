@@ -1439,10 +1439,13 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
         base64Images: base64Images,
         ...(selectedCategories[0] === 1 && {
           brand: selectedCategories[1]
-            ? vehicleCategories.find((cat) => cat.id === selectedCategories[1])
+            ? vehicleCategories.find((cat) => cat.id === selectedCategories[2])
                 ?.name
             : "",
           model: selectedCategories[2]
+            ? vehicleCategories.find((cat) => cat.id === selectedCategories[3])
+                ?.name
+            : selectedCategories[2]
             ? vehicleCategories.find((cat) => cat.id === selectedCategories[2])
                 ?.name
             : "",

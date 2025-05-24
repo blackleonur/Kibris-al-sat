@@ -13,6 +13,7 @@ import {
   Modal,
   Linking,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RouteProp } from "@react-navigation/native";
@@ -32,6 +33,7 @@ import * as Location from "expo-location";
 import WebView from "react-native-webview";
 import TokenService from "../services/TokenService";
 import { LinearGradient } from "expo-linear-gradient";
+import ImageViewing from "react-native-image-viewing";
 
 type MessagesScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -70,6 +72,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
     longitude: number;
   } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [loadingImage, setLoadingImage] = useState(false);
 
   // İlk olarak kullanıcı ID'sini al
   useEffect(() => {
@@ -293,6 +296,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const sendImage = async (imageAsset: ImagePicker.ImagePickerAsset) => {
     try {
+      setLoadingImage(true);
       const token = await TokenService.getToken();
       if (!token || !currentUserId) {
         throw new Error("Oturum açmanız gerekiyor");
@@ -315,10 +319,12 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
         type: fileType,
         name: `photo.${fileType.split("/")[1]}`,
       } as any);
+      // receiverId bilgisini de ekle
+      formData.append("receiverId", advertOwnerId);
 
       console.log("Gönderilecek formData:", formData);
 
-      const response = await fetch(`${apiurl}/api/messages/upload-image`, {
+      const response = await fetch(`${apiurl}/api/messages/send-image`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -362,6 +368,8 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
     } catch (error) {
       console.error("Fotoğraf gönderme hatası:", error);
       alert(error instanceof Error ? error.message : "Fotoğraf gönderilemedi");
+    } finally {
+      setLoadingImage(false);
     }
   };
 
@@ -634,38 +642,6 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
       </View>
 
       <Modal
-        visible={selectedImage !== null}
-        transparent={true}
-        onRequestClose={() => setSelectedImage(null)}
-      >
-        <View style={styles.modalContainer}>
-          <TouchableOpacity
-            style={styles.modalCloseButton}
-            onPress={() => setSelectedImage(null)}
-          >
-            <Text style={styles.modalCloseText}>✕</Text>
-          </TouchableOpacity>
-          {selectedImage && (
-            <Image
-              source={{ uri: selectedImage }}
-              style={styles.fullScreenImage}
-              resizeMode="contain"
-              onLoad={(e) => {
-                const { width, height } = e.nativeEvent.source;
-                const aspectRatio = width / height;
-                e.currentTarget.setNativeProps({
-                  style: {
-                    ...styles.fullScreenImage,
-                    aspectRatio,
-                  },
-                });
-              }}
-            />
-          )}
-        </View>
-      </Modal>
-
-      <Modal
         visible={selectedLocation !== null}
         transparent={true}
         onRequestClose={() => setSelectedLocation(null)}
@@ -723,6 +699,31 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Fotoğraf gönderiliyor loading splash */}
+      <Modal visible={loadingImage} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <ActivityIndicator size="large" color="#8adbd2" />
+          <Text style={{ color: "#fff", marginTop: 15, fontSize: 18 }}>
+            Fotoğraf gönderiliyor...
+          </Text>
+        </View>
+      </Modal>
+
+      <ImageViewing
+        images={selectedImage ? [{ uri: selectedImage }] : []}
+        imageIndex={0}
+        visible={!!selectedImage}
+        onRequestClose={() => setSelectedImage(null)}
+        backgroundColor="rgba(0,0,0,0.9)"
+      />
     </LinearGradient>
   );
 };
@@ -895,11 +896,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 10,
-  },
-  fullScreenImage: {
-    width: "100%",
-    height: "90%",
-    aspectRatio: undefined,
   },
   modalCloseButton: {
     position: "absolute",

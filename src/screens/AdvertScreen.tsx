@@ -38,6 +38,7 @@ import MapView, { Marker } from "react-native-maps";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
+import ImageViewing from "react-native-image-viewing";
 
 type AdvertScreenRouteProp = RouteProp<RootStackParamList, "Advert">;
 type AdvertScreenNavigationProp = NativeStackNavigationProp<
@@ -106,6 +107,8 @@ const AdvertScreen: React.FC<Props> = ({ route, navigation }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showMap, setShowMap] = useState(false);
   const [showFullScreenImage, setShowFullScreenImage] = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [imageViewerIndex, setImageViewerIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const pan = useRef(new Animated.ValueXY()).current;
 
@@ -311,7 +314,10 @@ const AdvertScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.imageGalleryContainer}>
             <TouchableOpacity
               style={styles.mainImageContainer}
-              onPress={() => setShowFullScreenImage(true)}
+              onPress={() => {
+                setImageViewerIndex(currentImageIndex);
+                setShowImageViewer(true);
+              }}
               {...panResponder.panHandlers}
             >
               <Animated.Image
@@ -624,6 +630,15 @@ const AdvertScreen: React.FC<Props> = ({ route, navigation }) => {
             </TouchableOpacity>
           </Modal>
         )}
+
+        {/* Görsel zoom modalı */}
+        <ImageViewing
+          images={advert.imageUrls.$values.map((url) => ({ uri: url }))}
+          imageIndex={imageViewerIndex}
+          visible={showImageViewer}
+          onRequestClose={() => setShowImageViewer(false)}
+          backgroundColor="rgba(0,0,0,0.9)"
+        />
       </SafeAreaView>
     </LinearGradient>
   );
