@@ -121,7 +121,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       if (!token) {
         navigation.reset({
           index: 0,
-          routes: [{ name: "GuestHomeScreen" }],
+          routes: [{ name: "RegisterScreen" }],
         });
         return;
       }
@@ -157,7 +157,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     await AsyncStorage.removeItem("userToken");
     navigation.reset({
       index: 0,
-      routes: [{ name: "GuestHomeScreen" }],
+      routes: [{ name: "RegisterScreen" }],
     });
   };
 

@@ -13,16 +13,33 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kibris.app",
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.kibris.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "projectId": "a1ccaf19-5023-4f6f-82b8-bebe0071972d",
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/Arkaplanlilogo.png",
+          "color": "#8adbd2",
+          "sounds": ["./assets/bildirim.wav"]
+        }
+      ]
+    ]
   }
 }

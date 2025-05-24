@@ -591,7 +591,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           fuelType: advert.carDetail?.fuelType?.toLowerCase(),
         }));
 
-        console.log("İşlenmiş ilanlar:", processedAdverts); // Debug için
+        console.log("İşlenmiş ilanlar:", processedAdverts);
         setAllAdverts(processedAdverts);
       } else {
         console.error("API'den geçersiz veri formatı:", data);
@@ -810,7 +810,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const renderItem = ({ item }: { item: Advert }) => {
-    const imageUrl = item.images?.$values?.[0]?.url;
+    const imageUrl = item.imageUrl || item.images?.$values?.[0]?.url;
     const isOwnAdvert = item.userId === currentUserId;
 
     return (

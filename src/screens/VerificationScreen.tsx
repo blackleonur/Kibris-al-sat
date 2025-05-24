@@ -122,7 +122,9 @@ const VerificationScreen: React.FC<Props> = ({ navigation }) => {
             setShowWelcomeModal(false);
             navigation.reset({
               index: 0,
-              routes: [{ name: "Home" }],
+              routes: [
+                { name: "RegisterScreen", params: { fromVerification: true } },
+              ],
             });
           }, 3000);
         } else {
@@ -274,8 +276,8 @@ const VerificationScreen: React.FC<Props> = ({ navigation }) => {
             </View>
             <Text style={styles.welcomeTitle}>Hoş Geldiniz!</Text>
             <Text style={styles.welcomeMessage}>
-              Kıbrıs Al Sat'a hoş geldiniz. Artık alım satım yapabilir,
-              mesajlaşabilir ve daha fazlasını yapabilirsiniz.
+              Kıbrıs Al Sat'a hoş geldiniz.Giriş yaptıktan sonra alım satım
+              yapabilir, mesajlaşabilir ve daha fazlasını yapabilirsiniz.
             </Text>
             <View style={styles.welcomeProgressBar}>
               <Animated.View

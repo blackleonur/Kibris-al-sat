@@ -5,7 +5,9 @@ export type RootStackParamList = {
     advertId: string | number;
   };
   GuestHomeScreen: undefined;
-  RegisterScreen: undefined;
+  RegisterScreen: {
+    fromVerification?: boolean;
+  };
   VerificationScreen: {
     userData: {
       fullName: string;

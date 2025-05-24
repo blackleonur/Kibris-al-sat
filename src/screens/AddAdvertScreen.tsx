@@ -1324,7 +1324,9 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
 
   // İlan ekleme fonksiyonunu güncelle
   const addAdvert = async () => {
-    if (isLoading) return;
+    if (isLoading) {
+      return; // Eğer yükleme devam ediyorsa, yeni istek atılmasını engelle
+    }
 
     // Validasyon kontrolleri
     if (selectedCategories.length === 0) {
@@ -1386,7 +1388,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
     }
 
     try {
-      setIsLoading(true);
+      setIsLoading(true); // İşlem başlamadan önce loading state'ini true yap
 
       const [isValid, token] = await Promise.all([
         TokenService.isTokenValid(),
@@ -1398,6 +1400,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
           "Uyarı",
           "Oturumunuz sonlanmış. Lütfen tekrar giriş yapın."
         );
+        setIsLoading(false); // Hata durumunda loading state'ini false yap
         return;
       }
 
@@ -1413,6 +1416,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
             "Uyarı",
             "Bazı resimler yüklenemedi. Lütfen tekrar deneyin."
           );
+          setIsLoading(false); // Hata durumunda loading state'ini false yap
           return;
         }
       }
@@ -1511,7 +1515,7 @@ const AddAdvertScreen: React.FC<Props> = ({ navigation }): JSX.Element => {
         );
       }
     } finally {
-      setIsLoading(false);
+      setIsLoading(false); // İşlem bittiğinde loading state'ini false yap
     }
   };
 

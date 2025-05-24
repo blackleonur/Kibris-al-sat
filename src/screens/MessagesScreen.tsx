@@ -12,6 +12,7 @@ import {
   Platform,
   Modal,
   Linking,
+  StatusBar,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RouteProp } from "@react-navigation/native";
@@ -103,6 +104,13 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
     return () => clearInterval(interval);
   }, [currentUserId]);
 
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor("transparent");
+    }
+  }, []);
+
   const fetchMessages = async () => {
     if (!currentUserId) {
       console.log("currentUserId henüz hazır değil, mesajlar getirilmiyor");
@@ -151,8 +159,16 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
             hour: "2-digit",
             minute: "2-digit",
           }),
-          isMe: isCurrentUserSender, // Eğer gönderen biz isek sağda göster
+          isMe: isCurrentUserSender,
           senderId: msg.senderId,
+          imageUrl: msg.imageUrl,
+          location:
+            msg.latitude && msg.longitude
+              ? {
+                  latitude: msg.latitude,
+                  longitude: msg.longitude,
+                }
+              : undefined,
         };
       });
 
@@ -222,6 +238,21 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
+
+      // --- Bildirim gönder ---
+      await fetch(`${apiurl}/api/notifications/send`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userId: advertOwnerId,
+          title: "Yeni Bir Mesajınız var",
+          body: message,
+        }),
+      });
+      // --- Bildirim gönder ---
     } catch (error) {
       console.error("Mesaj gönderme hatası:", error);
       alert(
@@ -404,10 +435,10 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
     setSelectedImage(imageUrl);
   };
 
-  const handleLocationPress = (location: {
-    latitude: number;
-    longitude: number;
-  }) => {
+  const handleLocationPress = (
+    location: { latitude: number; longitude: number } | undefined
+  ) => {
+    if (!location) return;
     setSelectedLocation(location);
   };
 
@@ -415,8 +446,8 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
     if (!selectedLocation) return;
 
     const url = Platform.select({
-      ios: `maps:${selectedLocation.latitude},${selectedLocation.longitude}`,
-      android: `geo:${selectedLocation.latitude},${selectedLocation.longitude}?q=${selectedLocation.latitude},${selectedLocation.longitude}`,
+      ios: `maps://app?daddr=${selectedLocation.latitude},${selectedLocation.longitude}`,
+      android: `google.navigation:q=${selectedLocation.latitude},${selectedLocation.longitude}`,
     });
 
     if (url) {
@@ -428,7 +459,10 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
             alert("Harita uygulaması bulunamadı");
           }
         })
-        .catch((err) => console.error("Harita açma hatası:", err));
+        .catch((err) => {
+          console.error("Harita açma hatası:", err);
+          alert("Harita açılırken bir hata oluştu");
+        });
     }
   };
 
@@ -460,6 +494,42 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
             />
           </TouchableOpacity>
         )}
+        {item.location && !item.imageUrl && (
+          <TouchableOpacity
+            onPress={() => handleLocationPress(item.location)}
+            style={styles.mapContainer}
+          >
+            <WebView
+              style={styles.smallMap}
+              source={{
+                html: `
+                  <!DOCTYPE html>
+                  <html>
+                    <head>
+                      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+                      <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+                      <style>
+                        body { margin: 0; }
+                        #map { height: 150px; width: 200px; }
+                      </style>
+                    </head>
+                    <body>
+                      <div id="map"></div>
+                      <script>
+                        var map = L.map('map').setView([${item.location.latitude}, ${item.location.longitude}], 15);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                          attribution: '© OpenStreetMap contributors'
+                        }).addTo(map);
+                        L.marker([${item.location.latitude}, ${item.location.longitude}]).addTo(map);
+                      </script>
+                    </body>
+                  </html>
+                `,
+              }}
+            />
+          </TouchableOpacity>
+        )}
         <Text
           style={[
             styles.messageText,
@@ -487,6 +557,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
+      <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -522,11 +593,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
         />
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-        style={styles.keyboardView}
-      >
+      <View style={styles.inputWrapper}>
         <LinearGradient
           colors={["#fff", "#f8f8f8"]}
           style={styles.inputBackground}
@@ -564,7 +631,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
         </LinearGradient>
-      </KeyboardAvoidingView>
+      </View>
 
       <Modal
         visible={selectedImage !== null}
@@ -663,6 +730,7 @@ const MessagesScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   header: {
     flexDirection: "row",
@@ -714,9 +782,11 @@ const styles = StyleSheet.create({
   messagesContainer: {
     flex: 1,
     backgroundColor: "transparent",
+    paddingBottom: Platform.OS === "ios" ? 100 : 80,
   },
   messagesList: {
     padding: 10,
+    paddingBottom: 20,
   },
   messageContainer: {
     marginBottom: 8,
@@ -764,13 +834,18 @@ const styles = StyleSheet.create({
   theirMessageTime: {
     color: "#999",
   },
-  keyboardView: {
+  inputWrapper: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: "transparent",
+    zIndex: 1,
   },
   inputBackground: {
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.2)",
-    paddingBottom: Platform.OS === "ios" ? 0 : 0,
+    paddingBottom: Platform.OS === "ios" ? 20 : 10,
   },
   inputContainer: {
     flexDirection: "row",
@@ -831,7 +906,20 @@ const styles = StyleSheet.create({
     top: 40,
     right: 20,
     zIndex: 1,
-    padding: 10,
+    backgroundColor: "#8adbd2",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   modalCloseText: {
     color: "#fff",
@@ -847,19 +935,15 @@ const styles = StyleSheet.create({
   locationModalContainer: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
   },
   locationModalContent: {
-    width: "100%",
-    height: "100%",
+    flex: 1,
     backgroundColor: "#fff",
-    alignItems: "center",
   },
   mapContainer: {
+    flex: 1,
     width: "100%",
-    height: "90%",
-    overflow: "hidden",
+    height: "100%",
   },
   fullScreenMap: {
     flex: 1,
@@ -869,15 +953,31 @@ const styles = StyleSheet.create({
   directionsButton: {
     position: "absolute",
     bottom: 40,
+    left: "50%",
+    transform: [{ translateX: -75 }],
     backgroundColor: "#8adbd2",
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 25,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   directionsButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  smallMap: {
+    width: 200,
+    height: 150,
+    borderRadius: 10,
+    marginBottom: 5,
   },
 });
 

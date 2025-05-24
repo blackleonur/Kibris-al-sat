@@ -66,6 +66,17 @@ type Advert = {
   imageUrls: {
     $values: string[];
   };
+  carDetail?: {
+    brand: string;
+    model: string;
+    year: number;
+    kilometre: number;
+    horsePower: number;
+    engineSize: number;
+    bodyType: string;
+    transmission: string;
+    fuelType: string;
+  };
 };
 
 const COLORS = {
@@ -358,6 +369,68 @@ const AdvertScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
               <Text style={styles.advertDescription}>{advert.description}</Text>
             </View>
+
+            {advert.carDetail && (
+              <View style={styles.carDetailsContainer}>
+                <Text style={styles.carDetailsTitle}>Araç Detayları</Text>
+                <View style={styles.carDetailsGrid}>
+                  <View style={styles.carDetailItem}>
+                    <Text style={styles.carDetailLabel}>Marka</Text>
+                    <Text style={styles.carDetailValue}>
+                      {advert.carDetail.brand}
+                    </Text>
+                  </View>
+                  <View style={styles.carDetailItem}>
+                    <Text style={styles.carDetailLabel}>Model</Text>
+                    <Text style={styles.carDetailValue}>
+                      {advert.carDetail.model}
+                    </Text>
+                  </View>
+                  <View style={styles.carDetailItem}>
+                    <Text style={styles.carDetailLabel}>Yıl</Text>
+                    <Text style={styles.carDetailValue}>
+                      {advert.carDetail.year}
+                    </Text>
+                  </View>
+                  <View style={styles.carDetailItem}>
+                    <Text style={styles.carDetailLabel}>Kilometre</Text>
+                    <Text style={styles.carDetailValue}>
+                      {advert.carDetail.kilometre.toLocaleString("tr-TR")} km
+                    </Text>
+                  </View>
+                  <View style={styles.carDetailItem}>
+                    <Text style={styles.carDetailLabel}>Beygir Gücü</Text>
+                    <Text style={styles.carDetailValue}>
+                      {advert.carDetail.horsePower} HP
+                    </Text>
+                  </View>
+                  <View style={styles.carDetailItem}>
+                    <Text style={styles.carDetailLabel}>Motor Hacmi</Text>
+                    <Text style={styles.carDetailValue}>
+                      {advert.carDetail.engineSize} cc
+                    </Text>
+                  </View>
+                  <View style={styles.carDetailItem}>
+                    <Text style={styles.carDetailLabel}>Kasa Tipi</Text>
+                    <Text style={styles.carDetailValue}>
+                      {advert.carDetail.bodyType}
+                    </Text>
+                  </View>
+                  <View style={styles.carDetailItem}>
+                    <Text style={styles.carDetailLabel}>Vites</Text>
+                    <Text style={styles.carDetailValue}>
+                      {advert.carDetail.transmission}
+                    </Text>
+                  </View>
+                  <View style={styles.carDetailItem}>
+                    <Text style={styles.carDetailLabel}>Yakıt</Text>
+                    <Text style={styles.carDetailValue}>
+                      {advert.carDetail.fuelType}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
 
             <View style={styles.infoContainer}>
               <View style={styles.infoRow}>
@@ -975,6 +1048,43 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 8,
     letterSpacing: 0.2,
+  },
+  carDetailsContainer: {
+    backgroundColor: "#f7f9fc",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 18,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  carDetailsTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: COLORS.text.primary,
+    marginBottom: 16,
+  },
+  carDetailsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -8,
+  },
+  carDetailItem: {
+    width: "50%",
+    paddingHorizontal: 8,
+    marginBottom: 16,
+  },
+  carDetailLabel: {
+    fontSize: 14,
+    color: COLORS.text.tertiary,
+    marginBottom: 4,
+  },
+  carDetailValue: {
+    fontSize: 16,
+    color: COLORS.text.primary,
+    fontWeight: "600",
   },
 });
 

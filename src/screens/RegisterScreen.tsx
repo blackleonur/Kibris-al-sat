@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,24 +11,46 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Modal,
+  Animated,
+  Easing,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../Types";
 import apiurl from "../Apiurl";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import type { RouteProp } from "@react-navigation/native";
 import TokenService from "../services/TokenService";
 import { LinearGradient } from "expo-linear-gradient";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { faCheck, faTimes } from "@fortawesome/free-solid-svg-icons";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
 
 type RegisterScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
   "RegisterScreen"
 >;
 
+type RegisterScreenRouteProp = RouteProp<RootStackParamList, "RegisterScreen">;
+
+// Bildirim ayarlarını yapılandır
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
 const RegisterScreen = () => {
   const navigation = useNavigation<RegisterScreenNavigationProp>();
+  const route = useRoute<RegisterScreenRouteProp>();
   const [activeTab, setActiveTab] = useState<"register" | "login">("register");
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const progressAnimation = useRef(new Animated.Value(0)).current;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -41,6 +63,34 @@ const RegisterScreen = () => {
     hasSpecialChar: false,
     hasNumber: false,
     hasMinLength: false,
+  });
+
+  useEffect(() => {
+    // VerificationScreen'den gelip gelmediğimizi kontrol et
+    if (route.params?.fromVerification) {
+      setActiveTab("login");
+      setShowWelcomeModal(true);
+
+      // 3 saniye sonra modalı kapat
+      const timer = setTimeout(() => {
+        setShowWelcomeModal(false);
+      }, 3000);
+
+      // Progress animasyonu
+      Animated.timing(progressAnimation, {
+        toValue: 1,
+        duration: 3000,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      }).start();
+
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const progressWidth = progressAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
   });
 
   // Email validasyonu için regex
@@ -83,6 +133,43 @@ const RegisterScreen = () => {
     setPassword(text);
     checkPasswordRequirements(text);
   };
+
+  async function registerForPushNotificationsAsync() {
+    let token;
+
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.MAX,
+        sound: "bildirim.wav",
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#FF231F7C",
+      });
+    }
+
+    if (Device.isDevice) {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") {
+        alert("Bildirim izni verilmedi!");
+        return null;
+      }
+      token = (
+        await Notifications.getExpoPushTokenAsync({
+          projectId: "a1ccaf19-5023-4f6f-82b8-bebe0071972d",
+        })
+      ).data;
+    } else {
+      alert("Fiziksel cihaz gerekli!");
+    }
+
+    return token;
+  }
 
   const handleRegister = async () => {
     setError("");
@@ -141,6 +228,30 @@ const RegisterScreen = () => {
       const data = await response.json();
 
       if (response.ok && data.message?.includes("Kod gönderildi")) {
+        // Bildirim token'ı al ve backend'e gönder
+        const expoPushToken = await registerForPushNotificationsAsync();
+        if (expoPushToken) {
+          try {
+            const tokenResponse = await fetch(
+              `${apiurl}/api/notifications/register-token`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${data.token}`,
+                },
+                body: JSON.stringify(expoPushToken),
+              }
+            );
+
+            if (!tokenResponse.ok) {
+              console.error("Token kaydedilemedi:", await tokenResponse.text());
+            }
+          } catch (tokenError) {
+            console.error("Token kaydetme hatası:", tokenError);
+          }
+        }
+
         navigation.navigate("VerificationScreen", {
           userData: {
             fullName: name,
@@ -185,6 +296,34 @@ const RegisterScreen = () => {
           );
 
           await TokenService.setToken(data.token);
+
+          // Bildirim token'ı al ve backend'e gönder
+          const expoPushToken = await registerForPushNotificationsAsync();
+          if (expoPushToken) {
+            try {
+              const tokenResponse = await fetch(
+                `${apiurl}/api/notifications/register-token`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${data.token}`,
+                  },
+                  body: JSON.stringify(expoPushToken),
+                }
+              );
+
+              if (!tokenResponse.ok) {
+                console.error(
+                  "Token kaydedilemedi:",
+                  await tokenResponse.text()
+                );
+              }
+            } catch (tokenError) {
+              console.error("Token kaydetme hatası:", tokenError);
+            }
+          }
+
           // Başarılı giriş durumunda ana sayfaya yönlendir
           navigation.replace("Home");
         } else {
@@ -439,6 +578,27 @@ const RegisterScreen = () => {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* Hoş Geldiniz Modalı */}
+      <Modal visible={showWelcomeModal} transparent={true} animationType="fade">
+        <View style={styles.welcomeModalOverlay}>
+          <View style={styles.welcomeModalContainer}>
+            <View style={styles.welcomeIconContainer}>
+              <Text style={styles.welcomeIcon}>🎉</Text>
+            </View>
+            <Text style={styles.welcomeTitle}>Hoş Geldiniz!</Text>
+            <Text style={styles.welcomeMessage}>
+              Giriş yaptıktan sonra ilan yükleyebilir, ilanları görüntüleyebilir
+              ve daha fazlasını yapabilirsiniz.
+            </Text>
+            <View style={styles.welcomeProgressBar}>
+              <Animated.View
+                style={[styles.welcomeProgressFill, { width: progressWidth }]}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 };
@@ -593,6 +753,64 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginLeft: 10,
+  },
+  welcomeModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  welcomeModalContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 25,
+    width: "90%",
+    maxWidth: 340,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  welcomeIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#f0f7ff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  welcomeIcon: {
+    fontSize: 40,
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  welcomeMessage: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  welcomeProgressBar: {
+    width: "100%",
+    height: 6,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  welcomeProgressFill: {
+    height: "100%",
+    backgroundColor: "#8adbd2",
+    borderRadius: 3,
   },
 });
 
